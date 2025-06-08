@@ -1,27 +1,28 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Clock, Users, Settings, LogOut, FileText, Award } from "lucide-react";
 
 const Dashboard = () => {
-  const [user, setUser] = useState<any>(null);
+  const { user, profile, signOut, loading, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (!userData) {
+    if (!loading && !user) {
       navigate("/");
-    } else {
-      setUser(JSON.parse(userData));
     }
-  }, [navigate]);
+  }, [user, loading, navigate]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   const handleStartExam = (questionCount: number) => {
@@ -54,6 +55,10 @@ const Dashboard = () => {
     { label: "Time Spent", value: "4.5h", icon: <Clock className="h-5 w-5" /> }
   ];
 
+  if (loading) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>;
+  }
+
   if (!user) return null;
 
   return (
@@ -67,16 +72,18 @@ const Dashboard = () => {
               <h1 className="text-2xl font-bold text-gray-900">ExamPortal</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {user.username}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/admin")}
-                className="hidden sm:flex"
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Admin
-              </Button>
+              <span className="text-sm text-gray-600">Welcome, {profile?.username || user.email}</span>
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/admin")}
+                  className="hidden sm:flex"
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  Admin
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

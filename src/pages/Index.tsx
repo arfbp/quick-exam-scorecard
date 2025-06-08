@@ -1,23 +1,43 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BookOpen, Users, Award, BarChart3 } from "lucide-react";
+import { toast } from "sonner";
 
 const Index = () => {
-  const [isLogin, setIsLogin] = useState(true);
-  const [credentials, setCredentials] = useState({ username: "", password: "" });
+  const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Redirect if already logged in
+  if (user) {
+    navigate("/dashboard");
+    return null;
+  }
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // For demo purposes, accept any credentials
-    if (credentials.username && credentials.password) {
-      localStorage.setItem("user", JSON.stringify({ username: credentials.username }));
+    if (!credentials.email || !credentials.password) {
+      toast.error("Please enter both email and password");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await signIn(credentials.email, credentials.password);
+      toast.success("Successfully logged in!");
       navigate("/dashboard");
+    } catch (error) {
+      toast.error("Login failed. Please check your credentials.");
+      console.error("Login error:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -106,25 +126,25 @@ const Index = () => {
                 </div>
                 <div>
                   <CardTitle className="text-2xl font-bold text-gray-900">
-                    {isLogin ? "Welcome Back" : "Create Account"}
+                    Welcome Back
                   </CardTitle>
                   <CardDescription className="text-gray-600">
-                    {isLogin ? "Sign in to access your exams" : "Register for exam access"}
+                    Sign in to access your exams
                   </CardDescription>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="username" className="text-sm font-medium text-gray-700">
-                      Username
+                    <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                      Email
                     </Label>
                     <Input
-                      id="username"
-                      type="text"
-                      placeholder="Enter your username"
-                      value={credentials.username}
-                      onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
+                      id="email"
+                      type="email"
+                      placeholder="Enter your email"
+                      value={credentials.email}
+                      onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
                       className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                       required
                     />
@@ -146,20 +166,11 @@ const Index = () => {
                   <Button 
                     type="submit" 
                     className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
+                    disabled={loading}
                   >
-                    {isLogin ? "Sign In" : "Create Account"}
+                    {loading ? "Signing In..." : "Sign In"}
                   </Button>
                 </form>
-                
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={() => setIsLogin(!isLogin)}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
-                  >
-                    {isLogin ? "Need an account? Sign up" : "Already have an account? Sign in"}
-                  </button>
-                </div>
               </CardContent>
             </Card>
           </div>

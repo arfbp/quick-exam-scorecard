@@ -1,12 +1,8 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
+const supabaseUrl = "https://zbfwjiojsievpivacwno.supabase.co"
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpiZndqaW9qc2lldnBpdmFjd25vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkzNjEzMTQsImV4cCI6MjA2NDkzNzMxNH0.CBGDpBpkf7aCYH3N6gqZpVqwkAiVDvmbb1_ZzNKO6yM"
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
@@ -19,13 +15,15 @@ export type Question = {
   choice_d: string
   correct_answer: 'A' | 'B' | 'C' | 'D'
   explanation?: string
+  category_id?: number
   created_at: string
   updated_at: string
+  exam_categories?: ExamCategory
 }
 
 export type ExamResult = {
   id: number
-  user_id: string
+  user_id: number
   score: number
   total_questions: number
   answers_data: Record<string, any>
@@ -33,10 +31,19 @@ export type ExamResult = {
   created_at: string
 }
 
-export type Profile = {
-  id: string
+export type User = {
+  id: number
   username: string
+  password_hash: string
   is_admin: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type ExamCategory = {
+  id: number
+  name: string
+  description: string
   created_at: string
   updated_at: string
 }

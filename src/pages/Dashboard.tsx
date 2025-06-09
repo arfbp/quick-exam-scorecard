@@ -1,32 +1,37 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useCustomAuth } from "@/hooks/useCustomAuth";
+import { useCategories } from "@/hooks/useCategories";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Clock, Users, Settings, LogOut, FileText, Award } from "lucide-react";
 
 const Dashboard = () => {
-  const { user, profile, signOut, loading, isAdmin } = useAuth();
+  const { user, signOut, loading, isAdmin } = useCustomAuth();
+  const { categories } = useCategories();
   const navigate = useNavigate();
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate("/");
+      navigate("/login");
     }
   }, [user, loading, navigate]);
 
   const handleLogout = async () => {
     try {
       await signOut();
-      navigate("/");
+      navigate("/login");
     } catch (error) {
       console.error("Logout error:", error);
     }
   };
 
   const handleStartExam = (questionCount: number) => {
-    navigate(`/exam?questions=${questionCount}`);
+    const categoryParam = selectedCategory ? `&category=${selectedCategory}` : '';
+    navigate(`/exam?questions=${questionCount}${categoryParam}`);
   };
 
   const examOptions = [
@@ -49,10 +54,10 @@ const Dashboard = () => {
   ];
 
   const stats = [
-    { label: "Tests Taken", value: "3", icon: <FileText className="h-5 w-5" /> },
-    { label: "Average Score", value: "85%", icon: <Award className="h-5 w-5" /> },
-    { label: "Best Score", value: "92%", icon: <Award className="h-5 w-5" /> },
-    { label: "Time Spent", value: "4.5h", icon: <Clock className="h-5 w-5" /> }
+    { label: "Tests Taken", value: "0", icon: <FileText className="h-5 w-5" /> },
+    { label: "Average Score", value: "0%", icon: <Award className="h-5 w-5" /> },
+    { label: "Best Score", value: "0%", icon: <Award className="h-5 w-5" /> },
+    { label: "Time Spent", value: "0h", icon: <Clock className="h-5 w-5" /> }
   ];
 
   if (loading) {
@@ -69,10 +74,10 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <BookOpen className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-gray-900">ExamPortal</h1>
+              <h1 className="text-2xl font-bold text-gray-900">ExamLab</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">Welcome, {profile?.username || user.email}</span>
+              <span className="text-sm text-gray-600">Welcome, {user.username}</span>
               {isAdmin && (
                 <Button
                   variant="outline"
@@ -103,9 +108,37 @@ const Dashboard = () => {
           <div className="text-center space-y-4">
             <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Choose your test format and begin your examination. All questions feature randomized answer choices for fair assessment.
+              Choose your exam category and test format to begin your examination.
             </p>
           </div>
+
+          {/* Category Selection */}
+          <Card className="max-w-4xl mx-auto border-0 shadow-sm bg-white/60 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle>Select Exam Category</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                <Button
+                  variant={selectedCategory === null ? "default" : "outline"}
+                  onClick={() => setSelectedCategory(null)}
+                  className="h-auto p-3 text-center"
+                >
+                  All Categories
+                </Button>
+                {categories.map((category) => (
+                  <Button
+                    key={category.id}
+                    variant={selectedCategory === category.id ? "default" : "outline"}
+                    onClick={() => setSelectedCategory(category.id)}
+                    className="h-auto p-3 text-center"
+                  >
+                    {category.name}
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -156,7 +189,7 @@ const Dashboard = () => {
                   <div className="space-y-3">
                     <div className="flex items-center text-sm text-gray-600">
                       <Users className="h-4 w-4 mr-2" />
-                      Randomized answer choices
+                      {selectedCategory ? categories.find(c => c.id === selectedCategory)?.name : 'All Categories'}
                     </div>
                     <div className="flex items-center text-sm text-gray-600">
                       <Award className="h-4 w-4 mr-2" />
@@ -175,42 +208,6 @@ const Dashboard = () => {
               </Card>
             ))}
           </div>
-
-          {/* Recent Activity */}
-          <Card className="max-w-4xl mx-auto border-0 shadow-sm bg-white/60 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <FileText className="h-5 w-5 text-blue-600" />
-                <span>Recent Activity</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {[
-                  { test: "Full Test (50 questions)", score: "92%", date: "2 days ago", status: "excellent" },
-                  { test: "Quick Test (20 questions)", score: "88%", date: "1 week ago", status: "good" },
-                  { test: "Quick Test (20 questions)", score: "75%", date: "2 weeks ago", status: "average" }
-                ].map((activity, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-white/50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900">{activity.test}</p>
-                      <p className="text-sm text-gray-600">{activity.date}</p>
-                    </div>
-                    <Badge 
-                      variant={activity.status === "excellent" ? "default" : activity.status === "good" ? "secondary" : "outline"}
-                      className={
-                        activity.status === "excellent" ? "bg-green-100 text-green-800" :
-                        activity.status === "good" ? "bg-blue-100 text-blue-800" :
-                        "bg-yellow-100 text-yellow-800"
-                      }
-                    >
-                      {activity.score}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </main>
     </div>

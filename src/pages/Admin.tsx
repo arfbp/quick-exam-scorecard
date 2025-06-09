@@ -1,6 +1,9 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuestions } from "@/hooks/useQuestions";
+import { useCategories } from "@/hooks/useCategories";
+import { useCustomAuth } from "@/hooks/useCustomAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,76 +11,89 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Upload, Plus, Trash2, FileText, Users } from "lucide-react";
+import { ArrowLeft, Upload, Plus, Trash2, FileText } from "lucide-react";
+import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Admin = () => {
   const navigate = useNavigate();
+  const { user, isAdmin } = useCustomAuth();
+  const { questions, addQuestion, deleteQuestion, addBulkQuestions } = useQuestions();
+  const { categories } = useCategories();
+  
   const [newQuestion, setNewQuestion] = useState({
-    question: "",
-    choiceA: "",
-    choiceB: "",
-    choiceC: "",
-    choiceD: "",
-    correct: "A",
-    explanation: ""
+    question_text: "",
+    choice_a: "",
+    choice_b: "",
+    choice_c: "",
+    choice_d: "",
+    correct_answer: "A" as 'A' | 'B' | 'C' | 'D',
+    explanation: "",
+    category_id: undefined as number | undefined
   });
 
   const [csvData, setCsvData] = useState("");
-  const [questions, setQuestions] = useState([
-    {
-      id: 1,
-      question: "What is the capital of France?",
-      choices: ["London", "Berlin", "Paris", "Madrid"],
-      correct: "C",
-      explanation: "Paris is the capital and most populous city of France."
-    }
-  ]);
 
-  const handleAddQuestion = () => {
-    if (newQuestion.question && newQuestion.choiceA && newQuestion.choiceB && newQuestion.choiceC && newQuestion.choiceD) {
-      const question = {
-        id: Date.now(),
-        question: newQuestion.question,
-        choices: [newQuestion.choiceA, newQuestion.choiceB, newQuestion.choiceC, newQuestion.choiceD],
-        correct: newQuestion.correct,
-        explanation: newQuestion.explanation
-      };
-      
-      setQuestions([...questions, question]);
-      setNewQuestion({
-        question: "",
-        choiceA: "",
-        choiceB: "",
-        choiceC: "",
-        choiceD: "",
-        correct: "A",
-        explanation: ""
-      });
+  // Redirect if not admin
+  if (!user || !isAdmin) {
+    navigate("/dashboard");
+    return null;
+  }
+
+  const handleAddQuestion = async () => {
+    if (newQuestion.question_text && newQuestion.choice_a && newQuestion.choice_b && newQuestion.choice_c && newQuestion.choice_d) {
+      try {
+        await addQuestion(newQuestion);
+        setNewQuestion({
+          question_text: "",
+          choice_a: "",
+          choice_b: "",
+          choice_c: "",
+          choice_d: "",
+          correct_answer: "A",
+          explanation: "",
+          category_id: undefined
+        });
+        toast.success("Question added successfully!");
+      } catch (error) {
+        toast.error("Failed to add question");
+      }
     }
   };
 
-  const handleDeleteQuestion = (id: number) => {
-    setQuestions(questions.filter(q => q.id !== id));
+  const handleDeleteQuestion = async (id: number) => {
+    try {
+      await deleteQuestion(id);
+      toast.success("Question deleted successfully!");
+    } catch (error) {
+      toast.error("Failed to delete question");
+    }
   };
 
-  const handleCSVUpload = () => {
+  const handleCSVUpload = async () => {
     try {
       const lines = csvData.split('\n');
-      const newQuestions = lines.slice(1).map((line, index) => {
-        const [question, choiceA, choiceB, choiceC, choiceD, correct, explanation] = line.split(',');
+      const questionsData = lines.slice(1).map((line) => {
+        const [question_text, choice_a, choice_b, choice_c, choice_d, correct_answer, explanation, categoryName] = line.split(',');
+        const category = categories.find(c => c.name.toLowerCase() === categoryName?.trim().toLowerCase());
+        
         return {
-          id: Date.now() + index,
-          question: question.trim(),
-          choices: [choiceA.trim(), choiceB.trim(), choiceC.trim(), choiceD.trim()],
-          correct: correct.trim(),
-          explanation: explanation ? explanation.trim() : ""
+          question_text: question_text?.trim(),
+          choice_a: choice_a?.trim(),
+          choice_b: choice_b?.trim(), 
+          choice_c: choice_c?.trim(),
+          choice_d: choice_d?.trim(),
+          correct_answer: correct_answer?.trim() as 'A' | 'B' | 'C' | 'D',
+          explanation: explanation?.trim() || "",
+          category_id: category?.id
         };
-      }).filter(q => q.question);
+      }).filter(q => q.question_text);
       
-      setQuestions([...questions, ...newQuestions]);
+      await addBulkQuestions(questionsData);
       setCsvData("");
+      toast.success("Questions uploaded successfully!");
     } catch (error) {
-      alert("Error parsing CSV data. Please check the format.");
+      toast.error("Error parsing CSV data. Please check the format.");
     }
   };
 
@@ -133,12 +149,31 @@ const Admin = () => {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
+                    <Label htmlFor="category">Category</Label>
+                    <Select 
+                      value={newQuestion.category_id?.toString() || ""} 
+                      onValueChange={(value) => setNewQuestion({ ...newQuestion, category_id: value ? parseInt(value) : undefined })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id.toString()}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="question">Question</Label>
                     <Textarea
                       id="question"
                       placeholder="Enter your question here..."
-                      value={newQuestion.question}
-                      onChange={(e) => setNewQuestion({ ...newQuestion, question: e.target.value })}
+                      value={newQuestion.question_text}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, question_text: e.target.value })}
                       className="min-h-[100px]"
                     />
                   </div>
@@ -149,8 +184,8 @@ const Admin = () => {
                       <Input
                         id="choiceA"
                         placeholder="First option..."
-                        value={newQuestion.choiceA}
-                        onChange={(e) => setNewQuestion({ ...newQuestion, choiceA: e.target.value })}
+                        value={newQuestion.choice_a}
+                        onChange={(e) => setNewQuestion({ ...newQuestion, choice_a: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
@@ -158,8 +193,8 @@ const Admin = () => {
                       <Input
                         id="choiceB"
                         placeholder="Second option..."
-                        value={newQuestion.choiceB}
-                        onChange={(e) => setNewQuestion({ ...newQuestion, choiceB: e.target.value })}
+                        value={newQuestion.choice_b}
+                        onChange={(e) => setNewQuestion({ ...newQuestion, choice_b: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
@@ -167,8 +202,8 @@ const Admin = () => {
                       <Input
                         id="choiceC"
                         placeholder="Third option..."
-                        value={newQuestion.choiceC}
-                        onChange={(e) => setNewQuestion({ ...newQuestion, choiceC: e.target.value })}
+                        value={newQuestion.choice_c}
+                        onChange={(e) => setNewQuestion({ ...newQuestion, choice_c: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
@@ -176,8 +211,8 @@ const Admin = () => {
                       <Input
                         id="choiceD"
                         placeholder="Fourth option..."
-                        value={newQuestion.choiceD}
-                        onChange={(e) => setNewQuestion({ ...newQuestion, choiceD: e.target.value })}
+                        value={newQuestion.choice_d}
+                        onChange={(e) => setNewQuestion({ ...newQuestion, choice_d: e.target.value })}
                       />
                     </div>
                   </div>
@@ -185,17 +220,20 @@ const Admin = () => {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="correct">Correct Answer</Label>
-                      <select
-                        id="correct"
-                        value={newQuestion.correct}
-                        onChange={(e) => setNewQuestion({ ...newQuestion, correct: e.target.value })}
-                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      <Select 
+                        value={newQuestion.correct_answer} 
+                        onValueChange={(value) => setNewQuestion({ ...newQuestion, correct_answer: value as 'A' | 'B' | 'C' | 'D' })}
                       >
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                        <option value="D">D</option>
-                      </select>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A">A</SelectItem>
+                          <SelectItem value="B">B</SelectItem>
+                          <SelectItem value="C">C</SelectItem>
+                          <SelectItem value="D">D</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
@@ -233,10 +271,10 @@ const Admin = () => {
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <h3 className="font-semibold text-blue-900 mb-2">CSV Format:</h3>
                     <p className="text-blue-800 text-sm mb-2">
-                      Question, Choice A, Choice B, Choice C, Choice D, Correct Answer, Explanation
+                      Question, Choice A, Choice B, Choice C, Choice D, Correct Answer, Explanation, Category
                     </p>
                     <code className="text-xs bg-white p-2 rounded block text-gray-700">
-                      What is 2+2?, 3, 4, 5, 6, B, Basic addition
+                      What is 2+2?, 3, 4, 5, 6, B, Basic addition, Mathematics
                     </code>
                   </div>
 
@@ -279,15 +317,22 @@ const Admin = () => {
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">
                             <div className="space-y-2 flex-1">
-                              <h3 className="font-semibold text-gray-900">
-                                {index + 1}. {question.question}
-                              </h3>
+                              <div className="flex items-center space-x-2">
+                                <h3 className="font-semibold text-gray-900">
+                                  {index + 1}. {question.question_text}
+                                </h3>
+                                {question.exam_categories && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {question.exam_categories.name}
+                                  </Badge>
+                                )}
+                              </div>
                               <div className="grid grid-cols-2 gap-2 text-sm">
-                                {question.choices.map((choice, choiceIndex) => (
+                                {[question.choice_a, question.choice_b, question.choice_c, question.choice_d].map((choice, choiceIndex) => (
                                   <div 
                                     key={choiceIndex}
                                     className={`p-2 rounded ${
-                                      String.fromCharCode(65 + choiceIndex) === question.correct 
+                                      String.fromCharCode(65 + choiceIndex) === question.correct_answer 
                                         ? "bg-green-100 text-green-800" 
                                         : "bg-gray-100"
                                     }`}

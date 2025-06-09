@@ -12,7 +12,14 @@ export const useQuestions = () => {
       setLoading(true)
       const { data, error } = await supabase
         .from('questions')
-        .select('*')
+        .select(`
+          *,
+          exam_categories (
+            id,
+            name,
+            description
+          )
+        `)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -24,12 +31,19 @@ export const useQuestions = () => {
     }
   }
 
-  const addQuestion = async (question: Omit<Question, 'id' | 'created_at' | 'updated_at'>) => {
+  const addQuestion = async (question: Omit<Question, 'id' | 'created_at' | 'updated_at' | 'exam_categories'>) => {
     try {
       const { data, error } = await supabase
         .from('questions')
         .insert(question)
-        .select()
+        .select(`
+          *,
+          exam_categories (
+            id,
+            name,
+            description
+          )
+        `)
         .single()
 
       if (error) throw error
@@ -54,12 +68,19 @@ export const useQuestions = () => {
     }
   }
 
-  const addBulkQuestions = async (questionsData: Omit<Question, 'id' | 'created_at' | 'updated_at'>[]) => {
+  const addBulkQuestions = async (questionsData: Omit<Question, 'id' | 'created_at' | 'updated_at' | 'exam_categories'>[]) => {
     try {
       const { data, error } = await supabase
         .from('questions')
         .insert(questionsData)
-        .select()
+        .select(`
+          *,
+          exam_categories (
+            id,
+            name,
+            description
+          )
+        `)
 
       if (error) throw error
       setQuestions(prev => [...(data || []), ...prev])

@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useCustomAuth } from "@/hooks/useCustomAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,9 +10,9 @@ import { BookOpen, Users, Award, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 
 const Index = () => {
-  const [credentials, setCredentials] = useState({ email: "", password: "" });
+  const [credentials, setCredentials] = useState({ username: "", password: "" });
   const [loading, setLoading] = useState(false);
-  const { signIn, user } = useAuth();
+  const { signIn, user } = useCustomAuth();
   const navigate = useNavigate();
 
   // Redirect if already logged in
@@ -23,14 +23,14 @@ const Index = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!credentials.email || !credentials.password) {
-      toast.error("Please enter both email and password");
+    if (!credentials.username || !credentials.password) {
+      toast.error("Please enter both username and password");
       return;
     }
 
     try {
       setLoading(true);
-      await signIn(credentials.email, credentials.password);
+      await signIn(credentials.username, credentials.password);
       toast.success("Successfully logged in!");
       navigate("/dashboard");
     } catch (error) {
@@ -136,15 +136,15 @@ const Index = () => {
               <CardContent className="space-y-6">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                      Email
+                    <Label htmlFor="username" className="text-sm font-medium text-gray-700">
+                      Username
                     </Label>
                     <Input
-                      id="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      value={credentials.email}
-                      onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
+                      id="username"
+                      type="text"
+                      placeholder="Enter your username"
+                      value={credentials.username}
+                      onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
                       className="h-11 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                       required
                     />

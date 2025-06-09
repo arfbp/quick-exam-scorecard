@@ -26,22 +26,31 @@ export const CustomAuthProvider = ({ children }: { children: React.ReactNode }) 
   }, [])
 
   const signIn = async (username: string, password: string) => {
-    // For now, we'll do a simple check against the database
-    // In production, you should hash the password and compare properly
+    console.log('Attempting login with username:', username)
+    
+    // Query the database for the user
     const { data, error } = await supabase
       .from('users')
       .select('*')
       .eq('username', username)
       .single()
 
+    console.log('Database query result:', { data, error })
+
     if (error || !data) {
+      console.error('User not found:', error)
       throw new Error('Invalid credentials')
     }
 
-    // Simple password check (in production, use proper password hashing)
-    if (password !== 'xajh@1314') {
+    // For now, compare password directly (in production, use proper hashing)
+    console.log('Comparing passwords - input:', password, 'stored:', data.password_hash)
+    
+    if (data.password_hash !== password) {
+      console.error('Password mismatch')
       throw new Error('Invalid credentials')
     }
+
+    console.log('Login successful, setting user:', data)
 
     // Set current user context in Supabase for RLS
     await supabase.rpc('set_config', {

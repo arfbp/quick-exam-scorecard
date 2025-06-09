@@ -1,11 +1,14 @@
 
 import { useState, useEffect, createContext, useContext } from 'react'
-import { supabase, User } from '@/lib/supabase'
+import { supabase } from '@/integrations/supabase/client'
+import { User, Session } from '@supabase/supabase-js'
 
 interface AuthContextType {
   user: User | null
+  session: Session | null
   loading: boolean
   signIn: (username: string, password: string) => Promise<void>
+  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   isAdmin: boolean
 }
@@ -14,15 +17,29 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const CustomAuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check if user is logged in from localStorage
-    const storedUser = localStorage.getItem('examlab_user')
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
-    }
-    setLoading(false)
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth state changed:', event, session)
+        setSession(session)
+        setUser(session?.user ?? null)
+        setLoading(false)
+      }
+    )
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session:', session)
+      setSession(session)
+      setUser(session?.user ?? null)
+      setLoading(false)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const signIn = async (username: string, password: string) => {
@@ -58,12 +75,41 @@ export const CustomAuthProvider = ({ children }: { children: React.ReactNode }) 
       value: data.id.toString()
     })
 
-    setUser(data)
+    // Create a mock session for username/password login
+    const mockSession = {
+      user: data,
+      access_token: 'mock_token',
+      token_type: 'bearer',
+      expires_in: 3600,
+      expires_at: Date.now() + 3600000,
+      refresh_token: 'mock_refresh'
+    }
+
+    setUser(data as any)
+    setSession(mockSession as any)
     localStorage.setItem('examlab_user', JSON.stringify(data))
   }
 
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`
+      }
+    })
+
+    if (error) {
+      console.error('Google sign-in error:', error)
+      throw error
+    }
+  }
+
   const signOut = async () => {
+    // Sign out from Supabase auth if using OAuth
+    await supabase.auth.signOut()
+    
     setUser(null)
+    setSession(null)
     localStorage.removeItem('examlab_user')
     
     // Clear user context
@@ -73,13 +119,16 @@ export const CustomAuthProvider = ({ children }: { children: React.ReactNode }) 
     })
   }
 
-  const isAdmin = user?.is_admin ?? false
+  // Check if user is admin (works for both custom users table and Supabase auth users)
+  const isAdmin = user?.is_admin ?? user?.user_metadata?.is_admin ?? false
 
   return (
     <AuthContext.Provider value={{
       user,
+      session,
       loading,
       signIn,
+      signInWithGoogle,
       signOut,
       isAdmin
     }}>
